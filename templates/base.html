@@ -1,0 +1,18 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Flask App</title>
+</head>
+<body>
+<nav>
+    <a href="/">Home</a> |
+    <a href="/logger">Logger</a> |
+    <a href="/analytics">Analytics</a>
+</nav>
+
+<div>
+    {% block content %}{% endblock %}
+</div>
+</body>
+</html>
