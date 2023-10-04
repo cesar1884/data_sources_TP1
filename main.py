@@ -1,7 +1,27 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for, session
+from flask_oauthlib.client import OAuth
 import requests
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'random_secret_key'
+
+oauth = OAuth(app)
+import code_1
+
+google = oauth.remote_app(
+    'google',
+    consumer_key=code_1.client,
+    consumer_secret=code_1.code_client,
+    request_token_params={
+        'scope': 'https://www.googleapis.com/auth/analytics.readonly'
+    },
+    base_url='https://www.googleapis.com/oauth2/v1/',
+    request_token_url=None,
+    access_token_method='POST',
+    access_token_url='https://accounts.google.com/o/oauth2/token',
+    authorize_url='https://accounts.google.com/o/oauth2/auth',
+)
+
 last_message = ''
 
 @app.route('/')
@@ -20,8 +40,31 @@ def hello_world():
     <div>
         <a href="/logger">Go to Logger</a>
         <a href="/google-request">Google Request</a>
+        <a href="/login">Login with Google</a>
     </div>
     Hello World"""
+
+@app.route('/login')
+def login():
+    return google.authorize(callback=url_for('authorized', _external=True))
+
+@app.route('/logout')
+def logout():
+    session.pop('google_token')
+    return redirect(url_for('index'))
+
+@app.route('/login/authorized')
+def authorized():
+    response = google.authorized_response()
+    if response is None or response.get('access_token') is None:
+        return 'Accès refusé: raison=%s error=%s' % (
+            request.args['error_reason'],
+            request.args['error_description']
+        )
+
+    session['google_token'] = (response['access_token'], '')
+    user_info = google.get('userinfo')
+    return redirect(url_for('google_request'))
 
 @app.route('/logger', methods=['GET', 'POST'])
 def logger():
@@ -42,22 +85,35 @@ def logger():
     </form>
     """ + f"<p>Last logged message: {last_message}</p>"
 
-@app.route('/google-request', methods=['GET'])
+@app.route('/google-request', methods=['GET', 'POST'])
 def google_request():
+    cookies_str = ""
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+        
+        if action == "google_request":
+            req = requests.get("https://www.google.com/")
+            cookies_str = str(req.cookies._cookies)
+
+        elif action == "ganalytics_request":
+            req2 = requests.get("https://analytics.google.com/analytics/web/#/p407461953/reports/intelligenthome")
+            cookies_str = str(req2.cookies._cookies)
+    
     return """
     <div>
         <a href="/">Home</a>
         <a href="/logger">Logger</a>
     </div>
-    <form method="GET" action="/perform-google-request">
-        <input type="submit" value="Make Google Request">
+    <form method="POST">
+        <input type="submit" name="action" value="google_request" placeholder="Make Google Request">
+        <input type="submit" name="action" value="ganalytics_request" placeholder="Make GAnalytics Request">
     </form>
-    """
+    """ + f"<p>{cookies_str}</p>"
 
-@app.route('/perform-google-request', methods=['GET'])
-def perform_google_request():
-    req = requests.get("https://analytics.google.com/analytics/web/#/p407461953/reports/intelligenthome")
-    return str(req.cookies.get_dict())
+@google.tokengetter
+def get_google_oauth_token():
+    return session.get('google_token')
 
 if __name__ == '__main__':
     app.run(debug=True)
