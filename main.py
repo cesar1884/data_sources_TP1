@@ -15,4 +15,10 @@ def hello_world():
     """
     return prefix_google + "Hello World"
 
+@app.route("/logger")
+def logger():
+    print("This is a log message from Python.")
+    return "This is a log message from the browser."
 
+if __name__ == '__main__':
+    app.run(debug=True)  # The debug=True flag will help in automatically reloading the app on code changes
