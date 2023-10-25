@@ -2,3 +2,5 @@ Flask
 gunicorn
 requests
 flask_oauthlib
+google-api-python-client
+google-analytics-data
